@@ -436,6 +436,36 @@ vp_unproject(double x, double y, double *x_phys, double *y_phys)
     *y_phys = out_pt[1];
 }
 
+/*
+ * Sets the night lamp object position in an SDK-compliant way.
+ * That is, XPLMInstanceSetPosition is invoked outside of the draw callback.
+ */
+static void cam_draw_night_lamp(const vect2_t *cursor_pos) {
+    const float cursorX = (float)cursor_pos->x;
+    const float cursorY = (float)-cursor_pos->y;
+
+    XPLMProbeRef probe = XPLMCreateProbe(xplm_ProbeY);
+    XPLMProbeInfo_t info = {.structSize = sizeof(XPLMProbeInfo_t)};
+    if (XPLMProbeTerrainXYZ(probe, cursorX, 0,
+                            cursorY, &info))
+    {
+        XPLMDestroyProbe(probe);
+    }
+
+    XPLMDrawInfo_t di;
+    di.structSize = sizeof(di);
+    di.x = cursorX;
+    di.y = info.locationY;
+    di.z = cursorY;
+    di.heading = 0;
+    di.pitch = 0;
+    di.roll = 0;
+    ASSERT(cam_lamp_inst != NULL);
+    XPLMInstanceSetPosition(cam_lamp_inst, &di, NULL);
+
+    XPLMDestroyProbe(probe);
+}
+
 static int
 cam_ctl(XPLMCameraPosition_t *pos, int losing_control, void *refcon)
 {
@@ -489,6 +519,8 @@ cam_ctl(XPLMCameraPosition_t *pos, int losing_control, void *refcon)
     end_pos = vect2_add(VECT2(cam_pos.x, cam_pos.z),
                         vect2_rot(VECT2(dx, dy), pos->heading));
     cursor_world_pos = VECT2(end_pos.x, end_pos.y);
+
+    cam_draw_night_lamp(&cursor_world_pos);
 
     n = compute_segs(&bp.veh, start_pos, start_hdg, end_pos,
                      cursor_hdg, &pred_segs);
@@ -701,7 +733,6 @@ draw_prediction(XPLMDrawingPhase phase, int before, void *refcon)
     XPLMProbeRef probe = XPLMCreateProbe(xplm_ProbeY);
     XPLMProbeInfo_t info = {.structSize = sizeof(XPLMProbeInfo_t)};
     mat4 view, proj;
-    XPLMDrawInfo_t di;
     vec3 up = {sin(DEG2RAD(cam_hdg)), 0, -cos(DEG2RAD(cam_hdg))};
     vec3 fwd = {0, -1, 0};
     vec3 cam_posx = {dr_getf(&drs.cam_x), dr_getf(&drs.cam_y),
@@ -805,25 +836,6 @@ draw_prediction(XPLMDrawingPhase phase, int before, void *refcon)
                               seg->end_pos.y),
                         seg->end_hdg, GREEN_TUPLE);
     }
-
-    /* Draw the night-lighting lamp so the user can see under the cursor */
-    // VERIFY3U(XPLMProbeTerrainXYZ(probe, cursor_world_pos.x, 0,
-    //                              -cursor_world_pos.y, &info), ==, xplm_ProbeHitTerrain);
-    if (XPLMProbeTerrainXYZ(probe, cursor_world_pos.x, 0,
-                            -cursor_world_pos.y, &info))
-    {
-        XPLMDestroyProbe(probe);
-        return (1);
-    }
-    di.structSize = sizeof(di);
-    di.x = cursor_world_pos.x;
-    di.y = info.locationY;
-    di.z = -cursor_world_pos.y;
-    di.heading = 0;
-    di.pitch = 0;
-    di.roll = 0;
-    ASSERT(cam_lamp_inst != NULL);
-    XPLMInstanceSetPosition(cam_lamp_inst, &di, NULL);
 
     XPLMDestroyProbe(probe);
 
