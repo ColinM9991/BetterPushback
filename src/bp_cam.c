@@ -1395,7 +1395,7 @@ bp_cam_start(void)
     updateAvailable = getPluginUpdateStatus();
     if (updateAvailable != NULL)
     {
-        snprintf(bottom_msg, sizeof(bottom_msg), "New version of BetterPushBack available: %s (Use SkunkCrafts Updater to update)", updateAvailable);
+        snprintf(bottom_msg, sizeof(bottom_msg), "New version of BetterPushBack available: %s", updateAvailable);
         init_bottom_msg(bottom_msg);
     }
 
